@@ -32,6 +32,13 @@ options:
     description: Metrics dict from rgctl_metrics (optional).
     type: dict
     default: {}
+  graphs:
+    description: >
+      Dict of named Mermaid diagram sources to embed. Keys are diagram titles,
+      values are Mermaid source strings (from rgctl_graph.mermaid_source).
+      Only used in html and markdown formats.
+    type: dict
+    default: {}
 """
 
 RETURN = r"""
@@ -54,6 +61,15 @@ def _build_json_content(index_info, findings, metrics):
     return json.dumps({"index": index_info, "findings": findings, "metrics": metrics}, indent=2)
 
 
+def _graphs_markdown(graphs):
+    if not graphs:
+        return ""
+    lines = ["", "## Graphs", ""]
+    for title, source in graphs.items():
+        lines += [f"### {title}", "", "```mermaid", source, "```", ""]
+    return "\n".join(lines)
+
+
 def _finding_summary(f):
     """Extract a human-readable verdict/status from a finding regardless of check type."""
     for key in ("exploitability", "verdict", "message"):
@@ -68,7 +84,7 @@ def _finding_detail(f):
     return osv or location or ""
 
 
-def _build_markdown_content(index_info, findings, metrics):
+def _build_markdown_content(index_info, findings, metrics, graphs=None):
     lines = ["# rgctl Security Report", ""]
 
     if index_info:
@@ -131,6 +147,9 @@ def _build_markdown_content(index_info, findings, metrics):
                 "",
             ]
 
+    if graphs:
+        lines.append(_graphs_markdown(graphs))
+
     return "\n".join(lines) + "\n"
 
 
@@ -139,7 +158,7 @@ def _sev_color(sev):
             "medium": "#f39c12", "low": "#27ae60"}.get(sev, "#7f8c8d")
 
 
-def _build_html_content(index_info, findings, metrics):
+def _build_html_content(index_info, findings, metrics, graphs=None):
     sev_badge = lambda sev: (
         f'<span style="background:{_sev_color(sev)};color:#fff;'
         f'padding:2px 8px;border-radius:4px;font-size:0.85em">{sev}</span>'
@@ -225,12 +244,26 @@ def _build_html_content(index_info, findings, metrics):
           {"".join(metric_sections)}
         </section>""")
 
+    # Graphs
+    if graphs:
+        graph_blocks = "".join(
+            f'<h3>{title}</h3><div class="mermaid">{source}</div>'
+            for title, source in graphs.items()
+        )
+        sections.append(f"""
+        <section>
+          <h2>Graphs</h2>
+          {graph_blocks}
+        </section>""")
+
     body = "\n".join(sections)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <title>rgctl Analysis Report</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({{startOnLoad:true, theme:'neutral'}});</script>
 <style>
   body {{ font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto;
          padding: 0 1rem; color: #2c3e50; background: #f8f9fa; }}
@@ -270,13 +303,14 @@ def run_module(module):
     fmt = module.params["format"]
     index_info = module.params["index_info"] or {}
     metrics = module.params["metrics"] or {}
+    graphs = module.params["graphs"] or {}
 
     if fmt == "json":
         new_content = _build_json_content(index_info, findings, metrics)
     elif fmt == "html":
-        new_content = _build_html_content(index_info, findings, metrics)
+        new_content = _build_html_content(index_info, findings, metrics, graphs)
     else:
-        new_content = _build_markdown_content(index_info, findings, metrics)
+        new_content = _build_markdown_content(index_info, findings, metrics, graphs)
 
     new_hash = _sha256(new_content)
 
@@ -306,6 +340,7 @@ def main():
             format=dict(type="str", choices=["json", "markdown", "html"], default="json"),
             index_info=dict(type="dict", default={}),
             metrics=dict(type="dict", default={}),
+            graphs=dict(type="dict", default={}),
         ),
         supports_check_mode=False,
     )

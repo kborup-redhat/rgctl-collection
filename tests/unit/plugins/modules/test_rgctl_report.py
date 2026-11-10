@@ -23,6 +23,7 @@ def _params(**overrides):
         "format": "json",
         "index_info": INDEX,
         "metrics": {},
+        "graphs": {},
     }
     base.update(overrides)
     return base

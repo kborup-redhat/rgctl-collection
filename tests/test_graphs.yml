@@ -1,0 +1,86 @@
+---
+- name: Test Mermaid graph generation and HTML report with graphs
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    repo: "/tmp/rgctl-test-java/spring-petclinic"
+
+  tasks:
+    - name: Get callers of getName
+      rgctl.rgctl.rgctl_callers:
+        path: "{{ repo }}"
+        symbol: getName
+        class_name: NamedEntity
+        depth: 1
+      register: callers_result
+
+    - name: Get blast radius of getName
+      rgctl.rgctl.rgctl_blast_radius:
+        path: "{{ repo }}"
+        symbol: getName
+        class_name: NamedEntity
+      register: blast_result
+
+    - name: Get Owner extends relations
+      rgctl.rgctl.rgctl_relations:
+        path: "{{ repo }}"
+        symbol: Owner
+        edge: extends
+        direction: out
+      register: relations_result
+
+    - name: Generate callers Mermaid graph
+      rgctl.rgctl.rgctl_graph:
+        dest: "/tmp/rgctl-test-java/callers-getName.mmd"
+        data: "{{ callers_result }}"
+        data_type: callers
+        title: "Callers of NamedEntity.getName"
+        max_nodes: 20
+      register: callers_graph
+
+    - name: Generate blast radius Mermaid graph
+      rgctl.rgctl.rgctl_graph:
+        dest: "/tmp/rgctl-test-java/blast-getName.mmd"
+        data: "{{ blast_result }}"
+        data_type: blast_radius
+        title: "Blast Radius — NamedEntity.getName"
+        max_nodes: 15
+      register: blast_graph
+
+    - name: Generate relations Mermaid graph
+      rgctl.rgctl.rgctl_graph:
+        dest: "/tmp/rgctl-test-java/relations-Owner.mmd"
+        data: "{{ relations_result }}"
+        data_type: relations
+        title: "Owner inheritance"
+      register: relations_graph
+
+    - name: Show graph results
+      ansible.builtin.debug:
+        msg:
+          - "Callers graph  : {{ callers_graph.graph_path }} ({{ callers_graph.node_count }} nodes)"
+          - "Blast graph    : {{ blast_graph.graph_path }} ({{ blast_graph.node_count }} nodes)"
+          - "Relations graph: {{ relations_graph.graph_path }} ({{ relations_graph.node_count }} nodes)"
+
+    - name: Write HTML report with embedded graphs
+      rgctl.rgctl.rgctl_report:
+        dest: "/tmp/rgctl-test-java/report-with-graphs.html"
+        findings: []
+        format: html
+        index_info:
+          path: "{{ repo }}"
+          files_indexed: 99
+          nodes: 4654
+          edges: 10593
+        metrics: {}
+        graphs:
+          "Callers of NamedEntity.getName": "{{ callers_graph.mermaid_source }}"
+          "Blast Radius — getName": "{{ blast_graph.mermaid_source }}"
+          "Owner Inheritance": "{{ relations_graph.mermaid_source }}"
+      register: report_result
+
+    - name: Show report path
+      ansible.builtin.debug:
+        msg: "Report with graphs: {{ report_result.report_path }}"
