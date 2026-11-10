@@ -1,0 +1,30 @@
+---
+- name: Test rgctl analyze_pipeline against a local codebase (no clone)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    rgctl_git_url: ""       # Empty = skip clone, analyze rgctl_dest directly
+    rgctl_dest: "/tmp/rgctl-test-java/spring-petclinic"
+    rgctl_manage_install: false
+    rgctl_checks:
+      - vuln
+      - deps
+      - security
+    rgctl_severity_threshold: low
+    rgctl_report_dest: "/tmp/rgctl-test-java/report-local.json"
+    rgctl_report_format: json
+
+  roles:
+    - role: rgctl.rgctl.analyze_pipeline
+
+  post_tasks:
+    - name: Show analysis summary
+      ansible.builtin.debug:
+        msg:
+          - "Files indexed : {{ rgctl_analysis.index.files_indexed }}"
+          - "Graph nodes   : {{ rgctl_analysis.index.nodes }}"
+          - "Graph edges   : {{ rgctl_analysis.index.edges }}"
+          - "Total findings: {{ rgctl_analysis.findings | length }}"
+          - "Report written: {{ rgctl_analysis.report_path }}"

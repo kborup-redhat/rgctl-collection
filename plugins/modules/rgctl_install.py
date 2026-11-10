@@ -74,11 +74,21 @@ def _download_and_install(version, install_path, arch):
     tarball_url, sums_url = _build_download_url(version, arch)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        tarball_path = os.path.join(tmpdir, "rgctl.tar.gz")
+        tarball_name = os.path.basename(tarball_url)
+        tarball_path = os.path.join(tmpdir, tarball_name)
         sums_path = os.path.join(tmpdir, "SHA256SUMS.txt")
 
-        urllib.request.urlretrieve(tarball_url, tarball_path)
-        urllib.request.urlretrieve(sums_url, sums_path)
+        def _fetch(url, dest, timeout=60):
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=timeout) as resp, open(dest, "wb") as out:
+                while True:
+                    chunk = resp.read(65536)
+                    if not chunk:
+                        break
+                    out.write(chunk)
+
+        _fetch(tarball_url, tarball_path)
+        _fetch(sums_url, sums_path)
 
         # Verify SHA256
         sha256 = hashlib.sha256()
@@ -86,7 +96,6 @@ def _download_and_install(version, install_path, arch):
             for chunk in iter(lambda: f.read(65536), b""):
                 sha256.update(chunk)
         digest = sha256.hexdigest()
-        tarball_name = os.path.basename(tarball_url)
         with open(sums_path) as f:
             for line in f:
                 expected_hash, name = line.strip().split(None, 1)
@@ -98,7 +107,11 @@ def _download_and_install(version, install_path, arch):
                 raise RuntimeError(f"Could not find {tarball_name} in SHA256SUMS.txt")
 
         with tarfile.open(tarball_path, "r:gz") as tar:
-            tar.extractall(tmpdir)
+            try:
+                tar.extractall(tmpdir, filter="data")
+            except TypeError:
+                # filter parameter added in Python 3.12; fall back on older versions
+                tar.extractall(tmpdir)
 
         binary_src = os.path.join(tmpdir, "rgctl")
         binary_dst = os.path.join(install_path, "rgctl")

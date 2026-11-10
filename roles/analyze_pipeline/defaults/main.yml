@@ -3,20 +3,24 @@
 rgctl_git_url: ""
 rgctl_dest: ""
 
-# Git options
+# Git options (leave rgctl_git_url empty to skip clone and analyze rgctl_dest directly)
 rgctl_branch: "main"
 rgctl_git_key: ""
 rgctl_git_token: ""
+rgctl_git_depth: 0   # 0 = full clone; set to 1 for shallow clone (faster, less disk)
 
 # Analysis options
-rgctl_checks:
-  - vuln
-  - deps
-  - security
-  - taint
+# Supported checks: vuln_analyze, deps_check, taint
+# vuln_analyze / deps_check require rgctl_osv_file
+# taint requires rgctl_sink_symbols and discover run with rgctl_with_cfg: true
+rgctl_checks: []
+rgctl_osv_file: ""           # Path to OSV advisory JSON — download from https://api.osv.dev/v1/vulns/<ID>
+rgctl_sink_symbols: []       # Sink symbols for taint: [ObjectMapper.readValue, Runtime.exec]
+rgctl_taint_depth: 8
 rgctl_severity_threshold: medium
 rgctl_force_discover: false
 rgctl_discover_timeout: 600
+rgctl_with_cfg: false        # Set true before taint analysis (slower discover)
 
 # Report options
 rgctl_report_dest: "{{ rgctl_dest }}/rgctl-report.json"
@@ -26,3 +30,5 @@ rgctl_report_format: json
 rgctl_manage_install: false
 rgctl_version: "latest"
 rgctl_install_path: /usr/local/bin
+rgctl_bin: rgctl           # Override if binary is not on PATH (e.g. /opt/bin/rgctl)
+rgctl_scan_timeout: 300    # Timeout in seconds for each security check

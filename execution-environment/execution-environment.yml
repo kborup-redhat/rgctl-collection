@@ -16,16 +16,12 @@ dependencies:
 additional_build_steps:
   append_final:
     - >-
-      RUN RGCTL_VERSION=${RGCTL_VERSION:-0.4.26} &&
-      curl -fsSL
-      "https://github.com/rgctl/rgctl/releases/download/v${RGCTL_VERSION}/rgctl-${RGCTL_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
-      -o /tmp/rgctl.tar.gz &&
-      curl -fsSL
-      "https://github.com/rgctl/rgctl/releases/download/v${RGCTL_VERSION}/SHA256SUMS.txt"
-      -o /tmp/SHA256SUMS.txt &&
+      RUN TARBALL="rgctl-${RGCTL_VERSION}-x86_64-unknown-linux-gnu.tar.gz" &&
+      curl -fsSL "https://github.com/rgctl/rgctl/releases/download/v${RGCTL_VERSION}/${TARBALL}" -o "/tmp/${TARBALL}" &&
+      curl -fsSL "https://github.com/rgctl/rgctl/releases/download/v${RGCTL_VERSION}/SHA256SUMS.txt" -o /tmp/SHA256SUMS.txt &&
       cd /tmp &&
       sha256sum -c SHA256SUMS.txt --ignore-missing &&
-      tar xzf rgctl.tar.gz &&
+      tar xzf "${TARBALL}" &&
       install -m 755 rgctl /usr/local/bin/rgctl &&
-      rm -f /tmp/rgctl.tar.gz /tmp/SHA256SUMS.txt /tmp/rgctl
+      rm -f "/tmp/${TARBALL}" /tmp/SHA256SUMS.txt /tmp/rgctl
     - RUN rgctl --version

@@ -2,9 +2,8 @@
 - name: Validate required variables
   ansible.builtin.assert:
     that:
-      - rgctl_git_url | length > 0
       - rgctl_dest | length > 0
-    fail_msg: "rgctl_git_url and rgctl_dest must be set"
+    fail_msg: "rgctl_dest must be set"
 
 - name: Install rgctl binary (local machines only)
   rgctl.rgctl.rgctl_install:
@@ -23,21 +22,38 @@
     dest: "{{ rgctl_dest }}"
     version: "{{ rgctl_branch }}"
     key_file: "{{ rgctl_git_key if rgctl_git_key | length > 0 else omit }}"
+    depth: "{{ rgctl_git_depth if rgctl_git_depth | int > 0 else omit }}"
     force: false
   no_log: "{{ (rgctl_git_token | length > 0) | bool }}"
+  when: rgctl_git_url | length > 0
+
+- name: Remove token from git remote URL
+  ansible.builtin.command:
+    cmd: "git remote set-url origin {{ rgctl_git_url }}"
+    chdir: "{{ rgctl_dest }}"
+  when:
+    - rgctl_git_url | length > 0
+    - rgctl_git_token | length > 0
+  changed_when: false
 
 - name: Discover and index codebase
   rgctl.rgctl.rgctl_discover:
     path: "{{ rgctl_dest }}"
     force: "{{ rgctl_force_discover }}"
     timeout: "{{ rgctl_discover_timeout }}"
+    rgctl_bin: "{{ rgctl_bin }}"
   register: _rgctl_discover
 
 - name: Run security scan
   rgctl.rgctl.rgctl_security:
     path: "{{ rgctl_dest }}"
     checks: "{{ rgctl_checks }}"
+    osv_file: "{{ rgctl_osv_file }}"
+    sink_symbols: "{{ rgctl_sink_symbols }}"
+    taint_depth: "{{ rgctl_taint_depth }}"
     severity_threshold: "{{ rgctl_severity_threshold }}"
+    rgctl_bin: "{{ rgctl_bin }}"
+    timeout: "{{ rgctl_scan_timeout }}"
   register: _rgctl_security
 
 - name: Write analysis report

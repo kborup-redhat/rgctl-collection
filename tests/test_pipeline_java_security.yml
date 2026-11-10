@@ -1,0 +1,39 @@
+---
+- name: Test rgctl security scan against spring-petclinic (Spring4Shell check)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    rgctl_git_url: ""       # Already cloned — analyze local path directly
+    rgctl_dest: "/tmp/rgctl-test-java/spring-petclinic"
+    rgctl_manage_install: false
+
+    # Security: check for Spring4Shell (CVE-2022-22965)
+    rgctl_checks:
+      - deps_check
+      - vuln_analyze
+    rgctl_osv_file: "/tmp/spring4shell.json"
+    rgctl_severity_threshold: medium
+
+    rgctl_report_dest: "/tmp/rgctl-test-java/report-spring4shell.json"
+    rgctl_report_format: json
+
+  roles:
+    - role: rgctl.rgctl.analyze_pipeline
+
+  post_tasks:
+    - name: Show security scan results
+      ansible.builtin.debug:
+        msg:
+          - "Advisory checked  : Spring4Shell (CVE-2022-22965)"
+          - "Files indexed     : {{ rgctl_analysis.index.files_indexed }}"
+          - "Total findings    : {{ rgctl_analysis.findings | length }}"
+          - "Above threshold   : {{ rgctl_analysis.above_threshold_count }}"
+          - "Skipped checks    : {{ _rgctl_security.skipped_checks }}"
+          - "Report            : {{ rgctl_analysis.report_path }}"
+
+    - name: Show findings detail (if any)
+      ansible.builtin.debug:
+        var: rgctl_analysis.findings
+      when: rgctl_analysis.findings | length > 0

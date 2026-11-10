@@ -82,19 +82,40 @@ def _run_cmd(cmd, timeout, fail_msg_prefix):
     return result
 
 
-def _status_is_fresh(path, rgctl_bin):
-    result = _run_cmd([rgctl_bin, "status", path, "-f", "json"], timeout=10, fail_msg_prefix="rgctl status")
+def _get_status(path, index_path, rgctl_bin):
+    """Return parsed status JSON dict, or None if unavailable."""
+    cmd = [rgctl_bin, "status", path, "-f", "json"]
+    if index_path:
+        cmd += ["--index-path", index_path]
+    result = _run_cmd(cmd, timeout=10, fail_msg_prefix="rgctl status")
     if result.returncode != 0:
-        return False
+        return None
     try:
-        data = json.loads(result.stdout)
+        return json.loads(result.stdout)
     except json.JSONDecodeError:
+        return None
+
+
+def _status_is_fresh(status):
+    if not status:
         return False
     return (
-        data.get("status") == "ok"
-        and data.get("index_current") is True
-        and (data.get("dirty_files") or 0) == 0
+        status.get("status") == "ok"
+        and status.get("index_current") is True
+        and (status.get("dirty_files") or 0) == 0
     )
+
+
+def _index_fact_from_status(path, index_path, status):
+    """Build an rgctl_index fact from a status response (skip-path)."""
+    return {
+        "path": path,
+        "files_indexed": status.get("nodes", 0),  # status exposes nodes/edges, not files
+        "nodes": status.get("nodes", 0),
+        "edges": status.get("edges", 0),
+        "duration_ms": 0,
+        "index_path": index_path or os.path.join(path, ".rgctl"),
+    }
 
 
 def _discover(path, index_path, rgctl_bin, timeout):
@@ -131,18 +152,12 @@ def run_module(module):
     rgctl_bin = module.params["rgctl_bin"]
 
     try:
-        if not force and _status_is_fresh(path, rgctl_bin):
-            # Already indexed and current — return stub fact from status
+        status = _get_status(path, index_path, rgctl_bin)
+        if not force and _status_is_fresh(status):
+            index_fact = _index_fact_from_status(path, index_path, status)
             module.exit_json(
                 changed=False,
-                rgctl_index={
-                    "path": path,
-                    "files_indexed": 0,
-                    "nodes": 0,
-                    "edges": 0,
-                    "duration_ms": 0,
-                    "index_path": index_path or os.path.join(path, ".rgctl"),
-                },
+                rgctl_index=index_fact,
                 msg="Index is current — skipping discover",
             )
 
