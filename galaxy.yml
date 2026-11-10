@@ -1,0 +1,14 @@
+namespace: rgctl
+name: rgctl
+version: 0.1.0
+readme: README.md
+authors:
+  - rgctl community
+description: Ansible collection for automating code analysis with rgctl
+license:
+  - Apache-2.0
+repository: https://github.com/kborup-redhat/ansible-collection-rgctl
+tags:
+  - code_analysis
+  - security
+  - devtools
