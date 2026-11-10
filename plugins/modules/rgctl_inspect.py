@@ -72,35 +72,43 @@ CFG_MISSING_HINT = (
 
 def run_module(module):
     p = module.params
-    args = ["inspect", p["symbol"], p["subcommand"]]
+    # Flags go BEFORE the symbol: rgctl inspect [--class X] [--file X] SYMBOL SUBCOMMAND
+    args = ["inspect"]
     if p["class_name"]:
         args += ["--class", p["class_name"]]
     if p["file"]:
         args += ["--file", p["file"]]
     if p["line"] is not None:
         args += ["--line", str(p["line"])]
+    args += [p["symbol"], p["subcommand"]]
     if p["prune"]:
         args.append("--prune")
 
     try:
         rc, stdout, stderr = run_rgctl(args, p["path"], p["rgctl_bin"], p["timeout"])
-        data = parse_json(stdout, f"inspect {p['subcommand']}") or {}
-        # CFG not built → rgctl returns a specific error
-        if isinstance(data, dict) and "cfg" in str(data.get("error_code", "")).lower():
-            module.fail_json(msg=CFG_MISSING_HINT)
-        if isinstance(data, dict) and not data and rc != 0:
-            # Empty JSON + non-zero likely means CFG artifacts missing
+        if rc != 0 and not stdout.strip():
+            # Non-zero + empty stdout: CFG artifacts missing or other hard failure
             stderr_lower = stderr.lower()
-            if "cfg" in stderr_lower or "not found" in stderr_lower:
+            if "cfg" in stderr_lower or "artifact" in stderr_lower or not stderr_lower:
+                module.fail_json(msg=CFG_MISSING_HINT)
+            module.fail_json(msg=f"rgctl inspect failed: {stderr.strip()}")
+        data = parse_json(stdout, f"inspect {p['subcommand']}") or {}
+        # Check for rgctl error envelope (e.g. NOT_FOUND, AMBIGUOUS_SYMBOL)
+        if isinstance(data, dict) and data.get("ok") is False:
+            err = data.get("error_code", data.get("error", ""))
+            if "cfg" in str(err).lower():
                 module.fail_json(msg=CFG_MISSING_HINT)
         check_error_envelope(data, f"inspect {p['subcommand']}")
     except RuntimeError as e:
         module.fail_json(msg=str(e))
 
+    # Schema: {nodes: [...], edges: [...], layer: "cfg", symbol: "...", schema_version: N}
+    node_count = len(data.get("nodes", data.get("blocks", [])))
     module.exit_json(
         changed=False,
         rgctl_inspect=data,
-        msg=f"inspect {p['subcommand']} for '{p['symbol']}' complete",
+        node_count=node_count,
+        msg=f"inspect {p['subcommand']} for '{p['symbol']}': {node_count} node(s)",
     )
 
 

@@ -37,7 +37,8 @@ def _run(params):
 
 
 def _params(**overrides):
-    base = {"path": "/repo", "index_path": None, "force": False, "timeout": 600, "rgctl_bin": "rgctl"}
+    base = {"path": "/repo", "index_path": None, "force": False, "timeout": 600,
+            "rgctl_bin": "rgctl", "with_cfg": False, "with_git": False}
     base.update(overrides)
     return base
 

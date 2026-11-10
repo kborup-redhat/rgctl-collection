@@ -31,11 +31,25 @@ options:
     description: Path to the rgctl binary.
     type: str
     default: rgctl
+  with_cfg:
+    description: >
+      Build per-function CFG, dominators, and PDG into .rgctl/analysis/.
+      Required for rgctl_slice, rgctl_inspect, and taint analysis.
+      Significantly slower than a plain discover on large codebases.
+    type: bool
+    default: false
+  with_git:
+    description: Include git churn data (co-change edges, hotspot scores).
+    type: bool
+    default: false
 """
 
 RETURN = r"""
 changed:
   description: Whether the codebase was (re)indexed.
+  type: bool
+cfg_built:
+  description: Whether CFG/PDG artifacts were built in this run.
   type: bool
 rgctl_index:
   description: Index summary facts.
@@ -118,10 +132,14 @@ def _index_fact_from_status(path, index_path, status):
     }
 
 
-def _discover(path, index_path, rgctl_bin, timeout):
+def _discover(path, index_path, with_cfg, with_git, rgctl_bin, timeout):
     cmd = [rgctl_bin, "discover", path, "-f", "json"]
     if index_path:
         cmd += ["--index-path", index_path]
+    if with_cfg:
+        cmd.append("--with-cfg")
+    if with_git:
+        cmd.append("--with-git")
     result = _run_cmd(cmd, timeout=timeout, fail_msg_prefix="rgctl discover")
     if result.returncode != 0:
         raise RuntimeError(f"rgctl discover failed: {result.stderr.strip()}")
@@ -150,20 +168,30 @@ def run_module(module):
     force = module.params["force"]
     timeout = module.params["timeout"]
     rgctl_bin = module.params["rgctl_bin"]
+    with_cfg = module.params["with_cfg"]
+    with_git = module.params["with_git"]
 
     try:
         status = _get_status(path, index_path, rgctl_bin)
-        if not force and _status_is_fresh(status):
+        cfg_ready = (status or {}).get("capabilities", {}).get("cfg_cpg", {}).get("ready", False)
+        # Skip only when index is current AND CFG is already built (if requested)
+        if not force and _status_is_fresh(status) and (not with_cfg or cfg_ready):
             index_fact = _index_fact_from_status(path, index_path, status)
             module.exit_json(
                 changed=False,
                 rgctl_index=index_fact,
+                cfg_built=cfg_ready,
                 msg="Index is current — skipping discover",
             )
 
-        data = _discover(path, index_path, rgctl_bin, timeout)
+        data = _discover(path, index_path, with_cfg, with_git, rgctl_bin, timeout)
         index_fact = _build_index_fact(path, index_path, data)
-        module.exit_json(changed=True, rgctl_index=index_fact, msg="Codebase indexed")
+        module.exit_json(
+            changed=True,
+            rgctl_index=index_fact,
+            cfg_built=with_cfg,
+            msg=f"Codebase indexed" + (" (with CFG/PDG)" if with_cfg else ""),
+        )
 
     except RuntimeError as e:
         module.fail_json(msg=str(e))
@@ -177,6 +205,8 @@ def main():
             force=dict(type="bool", default=False),
             timeout=dict(type="int", default=600),
             rgctl_bin=dict(type="str", default="rgctl"),
+            with_cfg=dict(type="bool", default=False),
+            with_git=dict(type="bool", default=False),
         ),
         supports_check_mode=False,
     )

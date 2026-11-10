@@ -1,0 +1,70 @@
+---
+- name: Test CFG/PDG build and slice/inspect against spring-petclinic
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    repo: "/tmp/rgctl-test-java/spring-petclinic"
+
+  tasks:
+    - name: Discover with CFG/PDG enabled
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        with_cfg: true
+        force: false       # idempotent — skips if CFG already built
+        timeout: 300
+      register: discover_result
+
+    - name: Show discover result
+      ansible.builtin.debug:
+        msg:
+          - "changed    : {{ discover_result.changed }}"
+          - "cfg_built  : {{ discover_result.cfg_built }}"
+          - "nodes      : {{ discover_result.rgctl_index.nodes }}"
+          - "edges      : {{ discover_result.rgctl_index.edges }}"
+
+    - name: Inspect CFG of getName
+      rgctl.rgctl.rgctl_inspect:
+        path: "{{ repo }}"
+        symbol: getName
+        class_name: NamedEntity
+        subcommand: cfg
+      register: inspect_result
+
+    - name: Show CFG inspection
+      ansible.builtin.debug:
+        msg:
+          - "CFG nodes    : {{ inspect_result.node_count }}"
+          - "CFG layer    : {{ inspect_result.rgctl_inspect.layer }}"
+          - "CFG symbol   : {{ inspect_result.rgctl_inspect.symbol }}"
+          - "CFG edges    : {{ inspect_result.rgctl_inspect.edges | length }}"
+
+    - name: Find a good line/variable for slicing in OwnerController
+      rgctl.rgctl.rgctl_find:
+        path: "{{ repo }}"
+        pattern: "processCreationForm"
+        symbol_type: function
+        scope: "org.springframework.samples.petclinic.owner.OwnerController"
+      register: find_result
+
+    - name: Show function location
+      ansible.builtin.debug:
+        msg: "processCreationForm at line {{ find_result.rgctl_find_results[0].line | default('unknown') }}"
+      when: find_result.rgctl_find_results | length > 0
+
+    - name: Slice — backward slice on 'lastName' in processFindForm
+      rgctl.rgctl.rgctl_slice:
+        path: "{{ repo }}"
+        file: "src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java"
+        line: 100
+        variable: lastName
+        direction: backward
+      register: slice_result
+
+    - name: Show slice result
+      ansible.builtin.debug:
+        msg:
+          - "slice length     : {{ slice_result.slice_length }} statement(s)"
+          - "slice direction  : backward from line 100 (lastName)"
+          - "reduction        : {{ slice_result.rgctl_slice.reduction_percent | round(1) }}% of function"
