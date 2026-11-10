@@ -37,8 +37,18 @@ def _run(params):
 
 
 def _params(**overrides):
-    base = {"path": "/repo", "index_path": None, "force": False, "timeout": 600,
-            "rgctl_bin": "rgctl", "with_cfg": False, "with_git": False}
+    base = {
+        "path": "/repo", "index_path": None, "force": False, "full": False,
+        "files": [], "find_glob": None, "timeout": 600, "rgctl_bin": "rgctl",
+        "with_cfg": False, "with_git": False, "git_since": None,
+        "with_security": False, "with_taint": False, "taint_rules": None,
+        "with_ast_skeleton": False, "with_dfg_loops": False,
+        "with_harmonic": False, "with_universe": False,
+        "with_limits": None, "scip": None, "write_json_graph": False,
+        "export_migration_hints": False, "with_kantra": False,
+        "kantra_rules": None, "kantra_catalog": None,
+        "kantra_target": None, "kantra_index_only": False,
+    }
     base.update(overrides)
     return base
 
