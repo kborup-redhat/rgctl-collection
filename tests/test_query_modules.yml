@@ -1,0 +1,83 @@
+---
+- name: Smoke-test query modules against spring-petclinic
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    repo: "/tmp/rgctl-test-java/spring-petclinic"
+
+  tasks:
+    - name: find — search for Owner class
+      rgctl.rgctl.rgctl_find:
+        path: "{{ repo }}"
+        pattern: "Owner"
+        symbol_type: class
+      register: find_result
+
+    - name: Show find results
+      ansible.builtin.debug:
+        msg: "find Owner → {{ find_result.total }} result(s): {{ find_result.rgctl_find_results | map(attribute='qualified_name') | list }}"
+
+    - name: callers — who calls getName
+      rgctl.rgctl.rgctl_callers:
+        path: "{{ repo }}"
+        symbol: "getName"
+        class_name: "NamedEntity"
+        depth: 2
+      register: callers_result
+
+    - name: Show callers
+      ansible.builtin.debug:
+        msg: "callers of getName → {{ callers_result.total }} caller(s)"
+
+    - name: callees — what does processCreationForm call
+      rgctl.rgctl.rgctl_callees:
+        path: "{{ repo }}"
+        symbol: "processCreationForm"
+        class_name: "OwnerController"
+      register: callees_result
+
+    - name: Show callees
+      ansible.builtin.debug:
+        msg: "callees of processCreationForm → {{ callees_result.total }} callee(s)"
+
+    - name: blast_radius — impact of changing getName
+      rgctl.rgctl.rgctl_blast_radius:
+        path: "{{ repo }}"
+        symbol: "getName"
+        class_name: "NamedEntity"
+        summary: false
+      register: blast_result
+
+    - name: Show blast radius
+      ansible.builtin.debug:
+        msg:
+          - "Blast radius score   : {{ blast_result.impact_score }}"
+          - "Direct callers       : {{ blast_result.rgctl_blast_radius.metrics.direct_callers_count }}"
+          - "Impact zone size     : {{ blast_result.rgctl_blast_radius.metrics.impact_zone_size }}"
+
+    - name: clones — find duplicate functions
+      rgctl.rgctl.rgctl_clones:
+        path: "{{ repo }}"
+        mode: exact
+        min_loc: 5
+        exclude:
+          - generated
+      register: clones_result
+
+    - name: Show clones
+      ansible.builtin.debug:
+        msg: "clones (exact) → {{ clones_result.group_count }} clone group(s)"
+
+    - name: relations — find inheritance edges from Owner
+      rgctl.rgctl.rgctl_relations:
+        path: "{{ repo }}"
+        symbol: "Owner"
+        edge: "extends"
+        direction: out
+      register: relations_result
+
+    - name: Show relations
+      ansible.builtin.debug:
+        msg: "Owner extends → {{ relations_result.total }} edge(s)"
