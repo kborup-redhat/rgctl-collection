@@ -1,0 +1,29 @@
+---
+- name: Install rgctl on local machine
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars:
+    rgctl_version: "latest"
+    rgctl_install_path: "/usr/local/bin"
+
+  tasks:
+    - name: Install rgctl binary
+      rgctl.rgctl.rgctl_install:
+        version: "{{ rgctl_version }}"
+        install_path: "{{ rgctl_install_path }}"
+      register: install_result
+
+    - name: Verify installation
+      ansible.builtin.command: "{{ rgctl_install_path }}/rgctl --version"
+      register: version_check
+      changed_when: false
+
+    - name: Show install result
+      ansible.builtin.debug:
+        msg: >-
+          {% if install_result.changed %}
+          rgctl {{ install_result.rgctl_version_installed }} installed to {{ rgctl_install_path }}
+          {% else %}
+          rgctl {{ install_result.rgctl_version_installed }} already up to date — no changes made
+          {% endif %}
