@@ -39,7 +39,28 @@ This role orchestrates the complete analysis workflow. It is the primary entry p
 |---|---|---|
 | `rgctl_force_discover` | `false` | Re-index even if the index is current |
 | `rgctl_discover_timeout` | `600` | Timeout in seconds for the discover step |
-| `rgctl_with_cfg` | `false` | Run discover with CFG/CPG (required for taint analysis, slower) |
+| `rgctl_discover_full` | `false` | Force a full (non-incremental) pass |
+| `rgctl_discover_files` | `[]` | Discover only these repo-relative file paths |
+| `rgctl_discover_find_glob` | `null` | Glob filter — include only matching files |
+| `rgctl_with_cfg` | `false` | Build CFG/PDG — required for `rgctl_slice`, `rgctl_inspect`, taint |
+| `rgctl_with_git` | `false` | Include git co-change edges and hotspot scores |
+| `rgctl_git_since` | `null` | Git window for `rgctl_with_git` (e.g. `"90.days"`) |
+| `rgctl_with_security` | `false` | Kantra security rule evaluation during discover |
+| `rgctl_with_taint` | `false` | Extra taint rule pack during discover |
+| `rgctl_taint_rules` | `null` | Path to taint rules YAML (with `rgctl_with_taint`) |
+| `rgctl_with_ast_skeleton` | `false` | AST skeleton pass |
+| `rgctl_with_dfg_loops` | `false` | Data-flow graph loop analysis |
+| `rgctl_with_harmonic` | `false` | Harmonic centrality scores |
+| `rgctl_with_universe` | `false` | Universe-wide scan mode |
+| `rgctl_with_limits` | `null` | Resource constraints, e.g. `"max-mem-mb=2048,threads=2"` |
+| `rgctl_scip` | `null` | Path to SCIP protobuf for call-edge upgrade |
+| `rgctl_write_json_graph` | `false` | Write JSON graph sidecar |
+| `rgctl_export_migration_hints` | `false` | Export migration hints sidecar |
+| `rgctl_with_kantra` | `false` | Enable Kantra rule integration |
+| `rgctl_kantra_rules` | `null` | Path to Kantra rules directory |
+| `rgctl_kantra_catalog` | `null` | Path to Kantra ruleset catalog |
+| `rgctl_kantra_target` | `null` | Kantra target name |
+| `rgctl_kantra_index_only` | `false` | Index Kantra rules without running evals |
 
 ### Security
 

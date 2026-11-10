@@ -3,40 +3,72 @@
 rgctl_git_url: ""
 rgctl_dest: ""
 
-# Git options (leave rgctl_git_url empty to skip clone and analyze rgctl_dest directly)
+# Git / clone options (leave rgctl_git_url empty to analyze rgctl_dest directly)
 rgctl_branch: "main"
 rgctl_git_key: ""
 rgctl_git_token: ""
-rgctl_git_depth: 0   # 0 = full clone; set to 1 for shallow clone (faster, less disk)
+rgctl_git_depth: 0   # 0 = full clone; 1 = shallow clone (faster, less disk)
 
-# Analysis options
-# Supported checks: vuln_analyze, deps_check, taint
-# vuln_analyze / deps_check require rgctl_osv_file
-# taint requires rgctl_sink_symbols and discover run with rgctl_with_cfg: true
-rgctl_checks: []
-rgctl_osv_file: ""           # Path to OSV advisory JSON — download from https://api.osv.dev/v1/vulns/<ID>
-rgctl_sink_symbols: []       # Sink symbols for taint: [ObjectMapper.readValue, Runtime.exec]
-rgctl_taint_depth: 8
-rgctl_severity_threshold: medium
+# ── Discover options ─────────────────────────────────────────────────────────
+
 rgctl_force_discover: false
 rgctl_discover_timeout: 600
-rgctl_with_cfg: false        # Set true before taint analysis (slower discover)
 
-# Report options
-rgctl_report_dest: "{{ rgctl_dest }}/rgctl-report.json"
-rgctl_report_format: json
+# Filtering
+rgctl_discover_full: false          # Force full (non-incremental) pass
+rgctl_discover_files: []            # Discover only these repo-relative paths
+rgctl_discover_find_glob: null      # Glob filter (e.g. "**/model/**")
 
-# Install options (local machines only — set false for AAP)
-rgctl_manage_install: false
-rgctl_version: "latest"
-rgctl_install_path: /usr/local/bin
-rgctl_bin: rgctl           # Override if binary is not on PATH (e.g. /opt/bin/rgctl)
-rgctl_scan_timeout: 300    # Timeout in seconds for each security check
+# Analysis passes
+rgctl_with_cfg: false               # CFG/PDG — required for slice, inspect, taint
+rgctl_with_git: false               # Git co-change edges + hotspot scores
+rgctl_git_since: null               # Git window for with_git (e.g. "90.days")
+rgctl_with_security: false          # Kantra security rule evaluation
+rgctl_with_taint: false             # Extra taint rule pack
+rgctl_taint_rules: null             # Path to taint rules YAML (with with_taint)
+rgctl_with_ast_skeleton: false      # AST skeleton pass
+rgctl_with_dfg_loops: false         # Data-flow graph loop analysis
+rgctl_with_harmonic: false          # Harmonic centrality scores
+rgctl_with_universe: false          # Universe-wide scan
 
-# Metrics options
+# Resources and external data
+rgctl_with_limits: null             # e.g. "max-mem-mb=2048,threads=2"
+rgctl_scip: null                    # Path to .scip protobuf for call-edge upgrade
+rgctl_write_json_graph: false       # Write JSON graph sidecar
+rgctl_export_migration_hints: false # Export migration hints sidecar
+
+# Kantra integration
+rgctl_with_kantra: false
+rgctl_kantra_rules: null            # Path to Kantra rules directory
+rgctl_kantra_catalog: null
+rgctl_kantra_target: null
+rgctl_kantra_index_only: false
+
+# ── Security scan options ────────────────────────────────────────────────────
+# Supported checks: vuln_analyze, deps_check, taint
+# vuln_analyze / deps_check require rgctl_osv_file
+# taint requires rgctl_sink_symbols and rgctl_with_cfg: true
+rgctl_checks: []
+rgctl_osv_file: ""           # Download from https://api.osv.dev/v1/vulns/<ID>
+rgctl_sink_symbols: []       # Sink symbols for taint: [ObjectMapper.readValue]
+rgctl_taint_depth: 8
+rgctl_severity_threshold: medium
+rgctl_scan_timeout: 300
+
+# ── Metrics options ──────────────────────────────────────────────────────────
 rgctl_collect_metrics: true
 rgctl_metrics:
   - pagerank
   - communities
 rgctl_metrics_top_n: 20
 rgctl_metrics_timeout: 120
+
+# ── Report options ───────────────────────────────────────────────────────────
+rgctl_report_dest: "{{ rgctl_dest }}/rgctl-report.json"
+rgctl_report_format: json   # json | markdown | html
+
+# ── Runtime / binary ─────────────────────────────────────────────────────────
+rgctl_manage_install: false   # Install rgctl at play time (local machines only)
+rgctl_version: "latest"
+rgctl_install_path: /usr/local/bin
+rgctl_bin: rgctl
