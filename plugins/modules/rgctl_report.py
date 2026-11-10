@@ -28,6 +28,10 @@ options:
     description: Index summary dict from rgctl_discover.
     type: dict
     default: {}
+  metrics:
+    description: Metrics dict from rgctl_metrics (optional).
+    type: dict
+    default: {}
 """
 
 RETURN = r"""
@@ -46,11 +50,11 @@ import os
 from ansible.module_utils.basic import AnsibleModule
 
 
-def _build_json_content(index_info, findings):
-    return json.dumps({"index": index_info, "findings": findings}, indent=2)
+def _build_json_content(index_info, findings, metrics):
+    return json.dumps({"index": index_info, "findings": findings, "metrics": metrics}, indent=2)
 
 
-def _build_markdown_content(index_info, findings):
+def _build_markdown_content(index_info, findings, metrics):
     lines = ["# rgctl Security Report", ""]
     if index_info:
         lines += [
@@ -84,6 +88,33 @@ def _build_markdown_content(index_info, findings):
     else:
         lines.append("No findings.")
 
+    if metrics:
+        lines += ["", "## Code Metrics", ""]
+        if "pagerank_top" in metrics:
+            lines += [
+                "### Top Symbols by PageRank (highest coupling/impact)",
+                "",
+                "| Symbol | Kind | File | Score |",
+                "|---|---|---|---|",
+            ]
+            for s in metrics["pagerank_top"][:10]:
+                name = s.get("qualified_name", s.get("name", ""))
+                kind = s.get("kind", "")
+                fpath = s.get("file_path", "")
+                score = f"{s.get('pagerank', 0):.6f}"
+                lines.append(f"| {name} | {kind} | {fpath} | {score} |")
+            lines.append("")
+        if "communities" in metrics:
+            c = metrics["communities"]
+            lines += [
+                "### Community Structure",
+                "",
+                f"- Communities detected: {c.get('count', 0)}",
+                f"- Modularity: {c.get('modularity', 0):.4f}",
+                f"- Symbols assigned: {c.get('assignments', 0)}",
+                "",
+            ]
+
     return "\n".join(lines) + "\n"
 
 
@@ -96,11 +127,12 @@ def run_module(module):
     findings = module.params["findings"]
     fmt = module.params["format"]
     index_info = module.params["index_info"] or {}
+    metrics = module.params["metrics"] or {}
 
     if fmt == "json":
-        new_content = _build_json_content(index_info, findings)
+        new_content = _build_json_content(index_info, findings, metrics)
     else:
-        new_content = _build_markdown_content(index_info, findings)
+        new_content = _build_markdown_content(index_info, findings, metrics)
 
     new_hash = _sha256(new_content)
 
@@ -129,6 +161,7 @@ def main():
             findings=dict(type="list", required=True),
             format=dict(type="str", choices=["json", "markdown"], default="json"),
             index_info=dict(type="dict", default={}),
+            metrics=dict(type="dict", default={}),
         ),
         supports_check_mode=False,
     )

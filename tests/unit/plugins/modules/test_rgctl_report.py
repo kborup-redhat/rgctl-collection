@@ -22,6 +22,7 @@ def _params(**overrides):
         "findings": FINDINGS,
         "format": "json",
         "index_info": INDEX,
+        "metrics": {},
     }
     base.update(overrides)
     return base
@@ -36,7 +37,7 @@ def test_creates_report_when_missing():
 
 
 def test_no_change_when_content_identical():
-    content = json.dumps({"index": INDEX, "findings": FINDINGS}, indent=2)
+    content = json.dumps({"index": INDEX, "findings": FINDINGS, "metrics": {}}, indent=2)
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open(read_data=content)):
         result = _run(_params())

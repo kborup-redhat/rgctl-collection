@@ -1,5 +1,5 @@
 ---
-- name: Test rgctl analyze_pipeline against a Java codebase
+- name: Test rgctl full pipeline against spring-petclinic (Java)
   hosts: localhost
   connection: local
   gather_facts: false
@@ -8,13 +8,24 @@
     rgctl_git_url: "https://github.com/spring-projects/spring-petclinic"
     rgctl_dest: "/tmp/rgctl-test-java/spring-petclinic"
     rgctl_branch: "main"
-    rgctl_manage_install: false   # rgctl already in PATH
+    rgctl_git_depth: 1
+    rgctl_manage_install: false
+
+    # Security: check for Spring4Shell (CVE-2022-22965)
     rgctl_checks:
-      - vuln
-      - deps
-      - security
+      - deps_check
+      - vuln_analyze
+    rgctl_osv_file: "/tmp/spring4shell.json"
     rgctl_severity_threshold: low
-    rgctl_report_dest: "/tmp/rgctl-test-java/report.json"
+
+    # Metrics
+    rgctl_collect_metrics: true
+    rgctl_metrics:
+      - pagerank
+      - communities
+    rgctl_metrics_top_n: 5
+
+    rgctl_report_dest: "/tmp/rgctl-test-java/report-full.json"
     rgctl_report_format: json
 
   roles:
@@ -24,15 +35,19 @@
     - name: Show analysis summary
       ansible.builtin.debug:
         msg:
-          - "Files indexed : {{ rgctl_analysis.index.files_indexed }}"
-          - "Graph nodes   : {{ rgctl_analysis.index.nodes }}"
-          - "Graph edges   : {{ rgctl_analysis.index.edges }}"
-          - "Total findings: {{ rgctl_analysis.findings | length }}"
-          - "Above threshold: {{ rgctl_analysis.above_threshold_count }}"
-          - "Report written: {{ rgctl_analysis.report_path }}"
+          - "Files indexed      : {{ rgctl_analysis.index.files_indexed }}"
+          - "Graph nodes        : {{ rgctl_analysis.index.nodes }}"
+          - "Graph edges        : {{ rgctl_analysis.index.edges }}"
+          - "Advisory checked   : Spring4Shell (CVE-2022-22965)"
+          - "Security findings  : {{ rgctl_analysis.findings | length }}"
+          - "Above threshold    : {{ rgctl_analysis.above_threshold_count }}"
+          - "Communities found  : {{ rgctl_analysis.metrics.communities.count | default('n/a') }}"
+          - "Graph modularity   : {{ rgctl_analysis.metrics.communities.modularity | default('n/a') }}"
+          - "Report             : {{ rgctl_analysis.report_path }}"
 
-    - name: Fail if critical findings found
-      ansible.builtin.fail:
-        msg: "{{ rgctl_analysis.above_threshold_count }} finding(s) at or above 'low' threshold — review report"
-      when: rgctl_analysis.above_threshold_count | int > 0
-      ignore_errors: true
+    - name: Show top symbols by PageRank
+      ansible.builtin.debug:
+        msg: "{{ item.qualified_name }} ({{ item.kind }}) — score {{ item.pagerank | round(6) }}"
+      loop: "{{ rgctl_analysis.metrics.pagerank_top | default([]) }}"
+      loop_control:
+        label: "{{ item.name }}"

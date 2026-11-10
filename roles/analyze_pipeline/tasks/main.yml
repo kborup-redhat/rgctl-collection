@@ -56,12 +56,23 @@
     timeout: "{{ rgctl_scan_timeout }}"
   register: _rgctl_security
 
+- name: Collect code metrics
+  rgctl.rgctl.rgctl_metrics:
+    path: "{{ rgctl_dest }}"
+    metrics: "{{ rgctl_metrics }}"
+    top_n: "{{ rgctl_metrics_top_n }}"
+    rgctl_bin: "{{ rgctl_bin }}"
+    timeout: "{{ rgctl_metrics_timeout }}"
+  register: _rgctl_metrics
+  when: rgctl_collect_metrics | bool
+
 - name: Write analysis report
   rgctl.rgctl.rgctl_report:
     dest: "{{ rgctl_report_dest }}"
     findings: "{{ _rgctl_security.rgctl_security_findings }}"
     format: "{{ rgctl_report_format }}"
     index_info: "{{ _rgctl_discover.rgctl_index }}"
+    metrics: "{{ _rgctl_metrics.rgctl_metrics | default({}) }}"
   register: _rgctl_report
 
 - name: Expose analysis summary as host fact
@@ -70,4 +81,5 @@
       index: "{{ _rgctl_discover.rgctl_index }}"
       findings: "{{ _rgctl_security.rgctl_security_findings }}"
       above_threshold_count: "{{ _rgctl_security.above_threshold_count }}"
+      metrics: "{{ _rgctl_metrics.rgctl_metrics | default({}) }}"
       report_path: "{{ _rgctl_report.report_path }}"

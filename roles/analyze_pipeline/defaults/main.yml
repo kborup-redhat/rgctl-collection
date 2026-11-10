@@ -32,3 +32,11 @@ rgctl_version: "latest"
 rgctl_install_path: /usr/local/bin
 rgctl_bin: rgctl           # Override if binary is not on PATH (e.g. /opt/bin/rgctl)
 rgctl_scan_timeout: 300    # Timeout in seconds for each security check
+
+# Metrics options
+rgctl_collect_metrics: true
+rgctl_metrics:
+  - pagerank
+  - communities
+rgctl_metrics_top_n: 20
+rgctl_metrics_timeout: 120
