@@ -1,0 +1,168 @@
+---
+- name: Test all rgctl_discover flags against spring-petclinic
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    repo: "/tmp/rgctl-test-java/spring-petclinic"
+
+  tasks:
+
+    # ── Baseline ────────────────────────────────────────────────────────────
+
+    - name: "baseline — plain discover (idempotent, should skip)"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+      register: r
+    - ansible.builtin.debug:
+        msg: "baseline: changed={{ r.changed }}, msg={{ r.msg }}"
+
+    # ── Filtering ───────────────────────────────────────────────────────────
+
+    - name: "full — force full (non-incremental) pass"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        full: true
+        force: true
+      register: r
+    - ansible.builtin.debug:
+        msg: "full: changed={{ r.changed }}, nodes={{ r.rgctl_index.nodes }}"
+
+    - name: "files — index only specific files"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        files:
+          - src/main/java/org/springframework/samples/petclinic/owner/Owner.java
+          - src/main/java/org/springframework/samples/petclinic/model/BaseEntity.java
+        force: true
+      register: r
+    - ansible.builtin.debug:
+        msg: "files: changed={{ r.changed }}, msg={{ r.msg }}"
+
+    - name: "find_glob — only index model package"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        find_glob: "**/model/**"
+        force: true
+      register: r
+    - ansible.builtin.debug:
+        msg: "find_glob: changed={{ r.changed }}, msg={{ r.msg }}"
+
+    # ── Analysis passes ──────────────────────────────────────────────────────
+
+    - name: "with_git + git_since — co-change edges, last 90 days"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        with_git: true
+        git_since: "90.days"
+        force: true
+      register: r
+    - ansible.builtin.debug:
+        msg: "with_git: changed={{ r.changed }}, msg={{ r.msg }}"
+
+    - name: "with_harmonic — harmonic centrality"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        with_harmonic: true
+        force: true
+      register: r
+    - ansible.builtin.debug:
+        msg: "with_harmonic: changed={{ r.changed }}, msg={{ r.msg }}"
+
+    - name: "with_ast_skeleton — AST skeleton pass"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        with_ast_skeleton: true
+        force: true
+      register: r
+    - ansible.builtin.debug:
+        msg: "with_ast_skeleton: changed={{ r.changed }}, msg={{ r.msg }}"
+
+    - name: "with_dfg_loops — data-flow loop analysis"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        with_dfg_loops: true
+        force: true
+      register: r
+    - ansible.builtin.debug:
+        msg: "with_dfg_loops: changed={{ r.changed }}, msg={{ r.msg }}"
+
+    - name: "with_security — Kantra security rules during discover"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        with_security: true
+        force: true
+      register: r
+    - ansible.builtin.debug:
+        msg: "with_security: changed={{ r.changed }}, msg={{ r.msg }}"
+
+    - name: "with_taint — taint rule pack"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        with_taint: true
+        force: true
+      register: r
+    - ansible.builtin.debug:
+        msg: "with_taint: changed={{ r.changed }}, msg={{ r.msg }}"
+
+    - name: "with_cfg — CFG/PDG build (needed for slice/inspect)"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        with_cfg: true
+        force: false   # idempotent — only rebuilds if stale
+      register: r
+    - ansible.builtin.debug:
+        msg: "with_cfg: changed={{ r.changed }}, cfg_built={{ r.cfg_built }}, msg={{ r.msg }}"
+
+    # ── Resources ───────────────────────────────────────────────────────────
+
+    - name: "with_limits — cap memory and threads (useful in containers/AAP)"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        with_limits: "max-mem-mb=2048,threads=2"
+        force: true
+      register: r
+    - ansible.builtin.debug:
+        msg: "with_limits: changed={{ r.changed }}, msg={{ r.msg }}"
+
+    # ── Sidecars ────────────────────────────────────────────────────────────
+
+    - name: "write_json_graph — write JSON graph sidecar"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        write_json_graph: true
+        force: true
+      register: r
+    - ansible.builtin.debug:
+        msg: "write_json_graph: changed={{ r.changed }}, msg={{ r.msg }}"
+
+    - name: "export_migration_hints — export migration hints sidecar"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        export_migration_hints: true
+        force: true
+      register: r
+    - ansible.builtin.debug:
+        msg: "export_migration_hints: changed={{ r.changed }}, msg={{ r.msg }}"
+
+    # ── Combined passes ─────────────────────────────────────────────────────
+
+    - name: "combined — git + harmonic + security in one pass"
+      rgctl.rgctl.rgctl_discover:
+        path: "{{ repo }}"
+        with_git: true
+        git_since: "30.days"
+        with_harmonic: true
+        with_security: true
+        force: true
+      register: r
+    - ansible.builtin.debug:
+        msg: "combined: changed={{ r.changed }}, msg={{ r.msg }}, edges={{ r.rgctl_index.edges }}"
+
+    # ── Summary ─────────────────────────────────────────────────────────────
+
+    - name: Final index status
+      ansible.builtin.debug:
+        msg:
+          - "Final index: {{ r.rgctl_index.files_indexed }} files, {{ r.rgctl_index.nodes }} nodes, {{ r.rgctl_index.edges }} edges"
