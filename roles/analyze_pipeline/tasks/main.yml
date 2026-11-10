@@ -1,0 +1,57 @@
+---
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - rgctl_git_url | length > 0
+      - rgctl_dest | length > 0
+    fail_msg: "rgctl_git_url and rgctl_dest must be set"
+
+- name: Install rgctl binary (local machines only)
+  rgctl.rgctl.rgctl_install:
+    version: "{{ rgctl_version }}"
+    install_path: "{{ rgctl_install_path }}"
+  when: rgctl_manage_install | bool
+
+- name: Clone repository
+  ansible.builtin.git:
+    repo: >-
+      {%- if rgctl_git_token | length > 0 -%}
+      {{ rgctl_git_url | regex_replace('^https://', 'https://' + rgctl_git_token + '@') }}
+      {%- else -%}
+      {{ rgctl_git_url }}
+      {%- endif -%}
+    dest: "{{ rgctl_dest }}"
+    version: "{{ rgctl_branch }}"
+    key_file: "{{ rgctl_git_key if rgctl_git_key | length > 0 else omit }}"
+    force: false
+  no_log: "{{ (rgctl_git_token | length > 0) | bool }}"
+
+- name: Discover and index codebase
+  rgctl.rgctl.rgctl_discover:
+    path: "{{ rgctl_dest }}"
+    force: "{{ rgctl_force_discover }}"
+    timeout: "{{ rgctl_discover_timeout }}"
+  register: _rgctl_discover
+
+- name: Run security scan
+  rgctl.rgctl.rgctl_security:
+    path: "{{ rgctl_dest }}"
+    checks: "{{ rgctl_checks }}"
+    severity_threshold: "{{ rgctl_severity_threshold }}"
+  register: _rgctl_security
+
+- name: Write analysis report
+  rgctl.rgctl.rgctl_report:
+    dest: "{{ rgctl_report_dest }}"
+    findings: "{{ _rgctl_security.rgctl_security_findings }}"
+    format: "{{ rgctl_report_format }}"
+    index_info: "{{ _rgctl_discover.rgctl_index }}"
+  register: _rgctl_report
+
+- name: Expose analysis summary as host fact
+  ansible.builtin.set_fact:
+    rgctl_analysis:
+      index: "{{ _rgctl_discover.rgctl_index }}"
+      findings: "{{ _rgctl_security.rgctl_security_findings }}"
+      above_threshold_count: "{{ _rgctl_security.above_threshold_count }}"
+      report_path: "{{ _rgctl_report.report_path }}"

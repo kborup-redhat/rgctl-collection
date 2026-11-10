@@ -1,0 +1,28 @@
+---
+# Required — role fails if unset
+rgctl_git_url: ""
+rgctl_dest: ""
+
+# Git options
+rgctl_branch: "main"
+rgctl_git_key: ""
+rgctl_git_token: ""
+
+# Analysis options
+rgctl_checks:
+  - vuln
+  - deps
+  - security
+  - taint
+rgctl_severity_threshold: medium
+rgctl_force_discover: false
+rgctl_discover_timeout: 600
+
+# Report options
+rgctl_report_dest: "{{ rgctl_dest }}/rgctl-report.json"
+rgctl_report_format: json
+
+# Install options (local machines only — set false for AAP)
+rgctl_manage_install: false
+rgctl_version: "latest"
+rgctl_install_path: /usr/local/bin
