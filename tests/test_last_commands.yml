@@ -1,0 +1,75 @@
+---
+- name: Smoke-test final modules against spring-petclinic
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    repo: "/tmp/rgctl-test-java/spring-petclinic"
+
+  tasks:
+    - name: update — incremental index update (already current)
+      rgctl.rgctl.rgctl_update:
+        path: "{{ repo }}"
+      register: update_result
+
+    - name: Show update result
+      ansible.builtin.debug:
+        msg: "update: changed={{ update_result.changed }}, message={{ update_result.rgctl_update.message }}"
+
+    - name: semantic_index — build semantic search index
+      rgctl.rgctl.rgctl_semantic_index:
+        path: "{{ repo }}"
+        incremental: true
+        timeout: 120
+      register: sem_idx_result
+
+    - name: Show semantic index result
+      ansible.builtin.debug:
+        msg: "semantic index: changed={{ sem_idx_result.changed }}, indexed={{ sem_idx_result.indexed_count }}, skipped={{ sem_idx_result.skipped_count }}"
+
+    - name: semantic — search for HTTP handler patterns
+      rgctl.rgctl.rgctl_semantic:
+        path: "{{ repo }}"
+        query: "find owner by last name"
+        limit: 5
+      register: sem_result
+      ignore_errors: true
+
+    - name: Show semantic results
+      ansible.builtin.debug:
+        msg: "semantic search: {{ sem_result.total | default('error: ' + sem_result.msg | default('unknown')) }} result(s)"
+
+    - name: inventory — count by type
+      rgctl.rgctl.rgctl_inventory:
+        path: "{{ repo }}"
+        by: type
+      register: inv_result
+
+    - name: Show inventory
+      ansible.builtin.debug:
+        msg: "inventory by type: {{ inv_result.rgctl_inventory | selectattr('count', 'gt', 0) | list }}"
+
+    - name: inventory — count by language
+      rgctl.rgctl.rgctl_inventory:
+        path: "{{ repo }}"
+        by: lang
+      register: inv_lang_result
+
+    - name: Show inventory by lang
+      ansible.builtin.debug:
+        msg: "inventory by lang: {{ inv_lang_result.rgctl_inventory | selectattr('count', 'gt', 0) | list }}"
+
+    - name: slice — test slice on a known location (requires CFG — may fail)
+      rgctl.rgctl.rgctl_slice:
+        path: "{{ repo }}"
+        file: "src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java"
+        line: 70
+        variable: "owner"
+        direction: backward
+      register: slice_result
+      ignore_errors: true
+
+    - name: Show slice result
+      ansible.builtin.debug:
+        msg: "slice: {{ slice_result.slice_length | default('error: ' + (slice_result.msg | default('unknown'))) }} statements"
