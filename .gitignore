@@ -1,0 +1,21 @@
+# Claude Code guidance files — not for public distribution
+CLAUDE.md
+.claude/
+.superpowers/
+
+# Python bytecache
+__pycache__/
+*.pyc
+*.pyo
+
+# Ansible build artifacts
+*.tar.gz
+
+# Test scratch
+/tmp/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo

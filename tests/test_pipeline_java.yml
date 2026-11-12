@@ -15,6 +15,7 @@
     rgctl_checks:
       - deps_check
       - vuln_analyze
+    # Download advisory first: curl -s https://api.osv.dev/v1/vulns/GHSA-36p3-wjmg-h94x > /tmp/spring4shell.json
     rgctl_osv_file: "/tmp/spring4shell.json"
     rgctl_severity_threshold: low
 
